@@ -1,0 +1,26 @@
+{
+  "name": "opencode-mcp",
+  "version": "0.1.0",
+  "private": false,
+  "description": "An MCP server for controlling OpenCode sessions from MCP-compatible clients.",
+  "type": "module",
+  "bin": {
+    "opencode-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "npm run build && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.3"
+  }
+}
