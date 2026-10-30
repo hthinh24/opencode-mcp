@@ -190,9 +190,11 @@ export class OpenCodeProcessManager {
       }
 
       try {
-        if (await this.probe(baseUrl + "/global/health", authorization)) return;
-        if (await this.probe(baseUrl + "/api/info", authorization)) return;
-        lastFailure = "The server is running but neither /global/health nor /api/info is available.";
+        // OpenCode V2's /global/health can return the frontend HTML with 200.
+        // Require a JSON API response and prefer the canonical V2 /api/info route.
+        if (await this.probeJson(baseUrl + "/api/info", authorization)) return;
+        if (await this.probeJson(baseUrl + "/global/health", authorization)) return;
+        lastFailure = "The server is running but neither /api/info nor /global/health returned a valid JSON API response.";
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (message.includes("authentication failed")) throw error;
@@ -210,7 +212,7 @@ export class OpenCodeProcessManager {
     );
   }
 
-  private async probe(url: string, authorization: string): Promise<boolean> {
+  private async probeJson(url: string, authorization: string): Promise<boolean> {
     const response = await this.fetchImpl(url, {
       method: "GET",
       headers: { authorization, accept: "application/json" },
@@ -220,7 +222,15 @@ export class OpenCodeProcessManager {
     if (response.status === 401 || response.status === 403) {
       throw new Error("OpenCode authentication failed while starting the managed server.");
     }
-    return response.ok;
+    if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
+      return false;
+    }
+    try {
+      await response.json();
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
