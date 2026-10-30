@@ -15,6 +15,24 @@ before(async () => {
     const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : undefined;
     requests.push({ method: req.method, url: req.url, headers: req.headers, body });
 
+    if (routeMode === 'v2-html-fallback') {
+      if (req.url === '/global/health') {
+        res.writeHead(200, { 'content-type': 'text/html' });
+        res.end('<!doctype html><html><title>OpenCode</title></html>');
+        return;
+      }
+      if (req.url === '/api/info') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ version: '2.0.26' }));
+        return;
+      }
+      if (req.url === '/api/agent') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify([{ id: 'v2-agent' }]));
+        return;
+      }
+    }
+
     if (routeMode === 'legacy') {
       if (req.url === '/api/info') {
         res.writeHead(200, { 'content-type': 'application/json' });
@@ -96,6 +114,15 @@ test('uses the current OpenCode API routes and Basic Auth', async () => {
   assert.deepEqual(agents, [{ id: 'default' }]);
   const agentRequest = requests.find((request) => request.url === '/agent');
   assert.equal(agentRequest.headers.authorization, `Basic ${Buffer.from('opencode:secret').toString('base64')}`);
+});
+
+test('prefers the V2 JSON API when the legacy health path serves frontend HTML', async () => {
+  routeMode = 'v2-html-fallback';
+  requests = [];
+  const client = new OpenCodeClient({ baseUrl, apiPrefix: 'auto' });
+  assert.deepEqual(await client.listAgents(), [{ id: 'v2-agent' }]);
+  assert.ok(requests.some((request) => request.url === '/api/info'));
+  assert.ok(requests.some((request) => request.url === '/api/agent'));
 });
 
 test('creates sessions using only supported session fields', async () => {
