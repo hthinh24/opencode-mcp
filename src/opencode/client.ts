@@ -172,14 +172,26 @@ export class OpenCodeClient {
   }
 
   private async detectApiPrefix(): Promise<string> {
-    const current = await this.probe("/global/health");
-    if (current.status !== 404) return "";
-
-    const legacy = await this.probe("/api/info");
-    if (legacy.status !== 404) return "/api";
+    // OpenCode V2 serves its API under /api. Check its JSON info endpoint
+    // first: /global/health may fall through to the V2 web app and return HTML 200.
+    if (await this.probeJson("/api/info")) return "/api";
+    if (await this.probeJson("/global/health")) return "";
 
     // Let the actual request return the most useful route-specific error.
     return "";
+  }
+
+  private async probeJson(path: string): Promise<boolean> {
+    const response = await this.probe(path);
+    if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
+      return false;
+    }
+    try {
+      await response.json();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async probe(path: string): Promise<Response> {
